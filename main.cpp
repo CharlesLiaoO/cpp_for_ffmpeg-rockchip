@@ -37,7 +37,7 @@ int main() {
     fs::create_directories("yuvs");
     std::vector<uint8_t> h264_stream;
 
-    std::cout<< "---- start ----";
+    std::cout<< "---- start ----"<< std::endl;
     for (auto& file : files) {
         auto jpeg_data = read_file(file.string());
 
@@ -51,6 +51,6 @@ int main() {
     }
 
     write_file("output.h264", h264_stream);
-    std::cout<< "---- end ----";
+    std::cout<< "---- end ----"<< std::endl;
     return 0;
 }
