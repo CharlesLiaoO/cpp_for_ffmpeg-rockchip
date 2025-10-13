@@ -117,8 +117,9 @@ public:
         codec_ctx_->height = height_;
         codec_ctx_->time_base = {1, framerate};
         codec_ctx_->framerate = {framerate, 1};
-        // codec_ctx_->pix_fmt = AV_PIX_FMT_DRM_PRIME;  // runtime error: [h264_rkmpp @ 0x55576db7b0] Unsupported input pixel format '(null)'
-        codec_ctx_->pix_fmt = AV_PIX_FMT_NV16;  // ok
+
+        codec_ctx_->pix_fmt = AV_PIX_FMT_DRM_PRIME;  // need to set codec_ctx_->sw_pix_fmt, otherwise get runtime error: [h264_rkmpp @ 0x55576db7b0] Unsupported input pixel format '(null)'
+        codec_ctx_->sw_pix_fmt = AV_PIX_FMT_NV16;
 
         // bit_rate
         codec_ctx_->bit_rate = bitrate;
