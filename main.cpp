@@ -41,11 +41,15 @@ int main() {
     for (auto& file : files) {
         auto jpeg_data = read_file(file.string());
 
-        // auto yuv_data = decoder.decode(jpeg_data.data(), jpeg_data.size());  // copy yuv frame to cpu then encode. ok
-        auto yuv_data = decoder.decode_drm(jpeg_data.data(), jpeg_data.size());  // use drm frame to encode. Not ok, get green-screen h264
+        // Method 1. copy yuv frame to cpu then encode.
+        // auto yuv_data = decoder.decode_2cpu(jpeg_data.data(), jpeg_data.size());
+        // auto h264_frame = encoder.encode_cpu2bytes(yuv_data);
 
+        // Method 2. use drm frame to encode; faster.
+        auto yuv_data = decoder.decode_2drm(jpeg_data.data(), jpeg_data.size());
         auto h264_frame = encoder.encode_drm2bytes(yuv_data);
-        std::cout << "h264_frame.size() "<< h264_frame.size() << std::endl;  // an other method to check if encoding is ok
+
+        std::cout << "h264_frame.size() "<< h264_frame.size() << std::endl;
 
         h264_stream.insert(h264_stream.end(), h264_frame.begin(), h264_frame.end());
     }
