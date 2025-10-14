@@ -41,7 +41,7 @@ int main() {
     for (auto& file : files) {
         auto jpeg_data = read_file(file.string());
 
-        // Method 1. copy yuv frame to cpu then encode.
+        // Method 1. copy yuv frame to cpu then encode. [not support encode cpu frame in this branch]
         // auto yuv_data = decoder.decode_2cpu(jpeg_data.data(), jpeg_data.size());
         // auto h264_frame = encoder.encode_cpu2bytes(yuv_data);
 

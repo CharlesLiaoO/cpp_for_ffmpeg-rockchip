@@ -228,14 +228,23 @@ public:
 
     // Encode cpu yuv to cpu h264
     AVPacket* encode_cpu2cpu(AVFrame* frame) {
-        // trans to drm frame
-        int ret = av_hwframe_transfer_data(frame_drm_, frame, 0);  // err: Invalid argument
-        if (ret < 0) {
-            char errbuf[AV_ERROR_MAX_STRING_SIZE];
-            av_strerror(ret, errbuf, sizeof(errbuf));
-            throw std::runtime_error(errbuf);
-        }
-        return encode_drm2cpu(frame_drm_);
+        // Before invoking encode_drm2cpu(), the codec_ctx_drm_->hw_device_ctx(&hw_frames_ctx) is null, so get err: Invalid argument.
+        // Create codec_ctx_drm_->hw_device_ctx(&hw_frames_ctx) in H264Encoder constructor is a bit complicated for this example,
+        // so use codec_ctx_cpu_.
+        // int ret = av_hwframe_transfer_data(drm_frame_, cpu_frame_, 0);  // err: Invalid argument
+        // if (ret < 0) {
+        //     char errbuf[AV_ERROR_MAX_STRING_SIZE];
+        //     av_strerror(ret, errbuf, sizeof(errbuf));
+        //     throw std::runtime_error(errbuf);
+        // }
+        // return encode_drm2cpu(drm_frame_);
+
+        // use cpu frame directly get err:
+        // [h264_rkmpp @ 0x55576cbe00] Only linear and AFBC modifiers are supported
+        // [h264_rkmpp @ 0x55576cbe00] Failed to submit frame on input
+        // return encode_drm2cpu(frame);
+
+        throw std::runtime_error("not support encode cpu frame in this branch");
     }
 
     // Set custom SEI data
