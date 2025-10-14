@@ -241,7 +241,7 @@ public:
 private:
     // Encode drm/cpu yuv to cpu h264
     AVPacket* encode_xxx2cpu(AVFrame* frame, bool is_drm_frame) {
-        auto t1 = std::chrono::steady_clock::now();
+        // auto t1 = std::chrono::steady_clock::now();
 
         auto codec_ctx = is_drm_frame ? codec_ctx_drm_ : codec_ctx_cpu_;
 
@@ -259,8 +259,8 @@ private:
         if (ret < 0)
             throw std::runtime_error("avcodec_receive_packet failed");
 
-        auto t2 = std::chrono::steady_clock::now();
-        std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << std::endl;
+        // auto t2 = std::chrono::steady_clock::now();
+        // std::cout << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << std::endl;
 
         return packet_;
     }
