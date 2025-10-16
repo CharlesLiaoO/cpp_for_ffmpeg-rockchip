@@ -245,9 +245,9 @@ private:
 
         auto codec_ctx = is_drm_frame ? codec_ctx_drm_ : codec_ctx_cpu_;
 
-        if (!sei_data_.empty()) {
-            attach_sei_to_frame(frame);
-        }
+        // if (!sei_data_.empty()) {
+        //     attach_sei_to_frame(frame);
+        // }
 
         frame->pts++;
         int ret = avcodec_send_frame(codec_ctx, frame);
@@ -267,13 +267,16 @@ private:
 
     // transfer cpu frame to bytes
     std::vector<uint8_t> cpu2bytes(AVPacket* packet) {
-        return std::vector<uint8_t>(packet->data, packet->data + packet->size);
+        if (sei_data_.empty()) {
+            return std::vector<uint8_t>(packet->data, packet->data + packet->size);
+        }
+
+        // h264_rkmpp doesn't support SEI via AVFrameSideData
+        // Manually insert SEI NAL unit into encoded H.264 stream
+        return insert_sei_to_packet(packet);
     }
 
     void attach_sei_to_frame(AVFrame* frame) {
-        // SEI type 5 (User Data Unregistered)
-        const int SEI_TYPE_USER_DATA_UNREGISTERED = 5;
-
         // UUID for identifying the SEI message
         const uint8_t uuid[16] = {
             0x4d, 0x59, 0x55, 0x55, 0x49, 0x44, 0x00, 0x00,
@@ -288,6 +291,111 @@ private:
             std::memcpy(side_data->data, uuid, 16);
             std::memcpy(side_data->data + 16, sei_data_.data(), sei_data_.size());
         }
+    }
+
+    // Manually construct and insert SEI NAL unit
+    std::vector<uint8_t> insert_sei_to_packet(AVPacket* packet) {
+        // Build SEI payload first (before RBSP encoding)
+        std::vector<uint8_t> sei_payload;
+
+        // SEI payload type: 5 (user data unregistered)
+        sei_payload.push_back(0x05);
+
+        // SEI payload size
+        size_t payload_size = 16 + sei_data_.size();
+        while (payload_size >= 255) {
+            sei_payload.push_back(0xFF);
+            payload_size -= 255;
+        }
+        sei_payload.push_back(static_cast<uint8_t>(payload_size));
+
+        // UUID for SEI user data unregistered
+        static const uint8_t uuid[16] = {
+            0x4d, 0x59, 0x55, 0x55, 0x49, 0x44, 0x00, 0x00,
+            0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01
+        };
+        sei_payload.insert(sei_payload.end(), uuid, uuid + 16);
+
+        // Payload data
+        sei_payload.insert(sei_payload.end(), sei_data_.begin(), sei_data_.end());
+
+        // RBSP trailing bits (0x80 for byte alignment)
+        sei_payload.push_back(0x80);
+
+        // Apply emulation prevention (escape sequences 0x000000, 0x000001, etc.)
+        std::vector<uint8_t> rbsp = apply_emulation_prevention(sei_payload);
+
+        // Now build complete NAL unit
+        std::vector<uint8_t> sei_nal;
+
+        // Start code: 0x00 0x00 0x00 0x01
+        sei_nal.insert(sei_nal.end(), {0x00, 0x00, 0x00, 0x01});
+
+        // NAL header: type 6 (SEI)
+        sei_nal.push_back(0x06);
+
+        // Add RBSP data
+        sei_nal.insert(sei_nal.end(), rbsp.begin(), rbsp.end());
+
+        // Find first slice NAL (type 1 or 5) to insert SEI before it
+        uint8_t* data = packet->data;
+        int size = packet->size;
+        int insert_pos = 0;
+
+        for (int i = 0; i < size - 4; i++) {
+            if (data[i] == 0 && data[i+1] == 0) {
+                int nal_start = -1;
+                if (data[i+2] == 1) {
+                    nal_start = i + 3;
+                } else if (data[i+2] == 0 && data[i+3] == 1) {
+                    nal_start = i + 4;
+                    i++;
+                }
+
+                if (nal_start > 0 && nal_start < size) {
+                    uint8_t nal_type = data[nal_start] & 0x1F;
+                    // Insert SEI before first slice
+                    if (nal_type == 1 || nal_type == 5) {
+                        insert_pos = i;
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Build final packet: [original data before slice] + [SEI] + [slice data]
+        std::vector<uint8_t> result;
+        result.reserve(insert_pos + sei_nal.size() + (size - insert_pos));
+        result.insert(result.end(), data, data + insert_pos);
+        result.insert(result.end(), sei_nal.begin(), sei_nal.end());
+        result.insert(result.end(), data + insert_pos, data + size);
+
+        return result;
+    }
+
+    // Apply emulation prevention to RBSP data
+    std::vector<uint8_t> apply_emulation_prevention(const std::vector<uint8_t>& data) {
+        std::vector<uint8_t> result;
+        result.reserve(data.size() + data.size() / 100); // Reserve extra space
+
+        int zero_count = 0;
+        for (size_t i = 0; i < data.size(); i++) {
+            if (zero_count == 2 && data[i] <= 0x03) {
+                // Insert emulation prevention byte
+                result.push_back(0x03);
+                zero_count = 0;
+            }
+
+            result.push_back(data[i]);
+
+            if (data[i] == 0x00) {
+                zero_count++;
+            } else {
+                zero_count = 0;
+            }
+        }
+
+        return result;
     }
 
     const AVCodec* codec_ = nullptr;
