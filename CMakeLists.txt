@@ -4,7 +4,7 @@ project(RockchipCodec LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-add_executable(rockchip_codec main.cpp)
+add_executable(rockchip_codec main.cpp mjpeg_to_h264.cpp)
 
 target_link_libraries(rockchip_codec
     avdevice        # V4L2
