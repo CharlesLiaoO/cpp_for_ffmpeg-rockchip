@@ -19,8 +19,14 @@ struct AVCodecContext;
 // usually use: 2drm and 2bytes
 class MJPEGDecoder {
 public:
-    MJPEGDecoder(int width, int height);
+    MJPEGDecoder();
     ~MJPEGDecoder();
+
+    // Set to use CPU codec instead of hardware codec
+    void setDisableHwCodec() { disable_hw_codec_ = true; }
+
+    // Initialize decoder (call this after setDisableHwCodec if needed)
+    void init(int width, int height);
 
     // decode to drm yuv
     AVFrame* decode_2drm(const uint8_t* jpeg_data, size_t data_size);
@@ -38,6 +44,7 @@ private:
     AVFrame* frame_drm_ = nullptr;
     AVFrame* frame_cpu_ = nullptr;
     std::vector<uint8_t> frame_bytes_;
+    bool disable_hw_codec_ = false;
 };
 
 
@@ -50,13 +57,19 @@ private:
 // usually use: drm2bytes and bytes2bytes
 class H264Encoder {
 public:
-    H264Encoder(int width, int height, int framerate = 30,
-            int bitrate = 4000000, int min_bitrate = 3000000,
-            int max_bitrate = 5000000);
+    H264Encoder();
 
     ~H264Encoder() {
         cleanup();
     }
+
+    // Set to use CPU codec instead of hardware codec
+    void setDisableHwCodec() { disable_hw_codec_ = true; }
+
+    // Initialize encoder (call this after setDisableHwCodec if needed)
+    void init(int width, int height, int framerate = 30,
+            int bitrate = 4000000, int min_bitrate = 3000000,
+            int max_bitrate = 5000000);
 
     // Encode drm yuv to bytes h264
     std::vector<uint8_t> encode_drm2bytes(AVFrame* yuv) {
@@ -98,6 +111,7 @@ private:
     AVPacket* packet_ = nullptr;
     AVFrame* frame_drm_ = nullptr;
     AVFrame* frame_cpu_ = nullptr;
+    bool disable_hw_codec_ = false;
 };
 
 #endif // MJPEG_TO_H264_H
